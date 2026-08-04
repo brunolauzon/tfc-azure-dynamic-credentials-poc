@@ -79,7 +79,7 @@ AzAPI is used for workload RGs because Terraform cannot dynamically select an `a
 | Federated cred | `{uami-name}-{plan\|apply}` | `…-azure-rg-fibre-dev-plan` |
 | Workload RG | `rg-{workload}-{env}` | `rg-fibre-dev` |
 
-`tfc_workspace_name` is the single source of truth — UAMI names and OIDC subjects are derived from it.
+`tfc_workspace_name` is the single source of truth — UAMI names, OIDC subjects, and the workload RG name (`azure-rg-X-Y` → `rg-X-Y`) are derived from it.
 
 ### Layout
 
@@ -266,13 +266,12 @@ locals {
   workspaces = {
     "azure-rg-myapp-prod" = {
       workload_subscription_id = "<workload-sub-id>"
-      workload_resource_group  = "rg-myapp-prod"
     }
   }
 }
 ```
 
-The map key is the TFC workspace name (`azure-rg-{workload}-{env}`).
+The map key is the TFC workspace name (`azure-rg-{workload}-{env}`). The workload RG is derived automatically (`rg-{workload}-{env}`).
 
 `workload_subscription_id` is required and can differ per workspace. Ensure the platform UAMI already has Contributor + User Access Administrator on that subscription ([step 4](#4-rbac-for-the-platform-uami)).
 
@@ -288,11 +287,10 @@ Optional per-entry keys: `role`, `workload_rg_location`. Because Terraform map v
 |----------|----------|---------|-------------|
 | `tfc_org_name` | yes | — | HCP Terraform org name |
 | `tfc_project_name` | no | `"Default Project"` | HCP Terraform project name |
-| `tfc_workspace_name` | yes | — | Must match `azure-rg-{workload}-{env}` |
+| `tfc_workspace_name` | yes | — | Must match `azure-rg-{workload}-{env}` (also derives RG name) |
 | `platform_resource_group` | no | `"rg-terraform-identities"` | Platform RG for the UAMI |
 | `uami_location` | yes | — | Azure region for the UAMI |
 | `workload_subscription_id` | yes | — | Workload Azure subscription for this workspace |
-| `workload_resource_group` | yes | — | Workload RG name (`rg-{workload}-{env}`) |
 | `workload_rg_location` | no | `null` → `uami_location` | Workload RG region |
 | `role` | no | `"Contributor"` | RBAC role on the workload RG |
 | `create_tfc_workspace_variables` | no | `false` | Create TFC env vars automatically |
@@ -305,6 +303,7 @@ Optional per-entry keys: `role`, `workload_rg_location`. Because Terraform map v
 | `uami_name` / `uami_client_id` / `uami_principal_id` / `uami_id` | UAMI identifiers |
 | `federated_credential_ids` | Map of `plan` / `apply` → credential resource ID |
 | `workload_subscription_id` | Workload subscription for this workspace |
+| `workload_resource_group_name` | Derived RG name (`azure-rg-X-Y` → `rg-X-Y`) |
 | `workload_resource_group_id` | Workload RG resource ID |
 | `role_assignment_id` | RBAC assignment ID |
 | `tfc_workspace_variables_summary` | Manual env-var values when auto-create is off |

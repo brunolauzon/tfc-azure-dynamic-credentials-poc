@@ -1,10 +1,12 @@
 # ---------------------------------------------------------------------------
 # Add one entry per TFC workspace. The map key IS the tfc_workspace_name and
-# drives the UAMI name, federated credential subjects, and TFC env variables.
+# drives the UAMI name, federated credential subjects, workload RG name, and
+# TFC env variables.
 #
 # Naming convention: azure-rg-{workload}-{env}
+#   → workload RG:   rg-{workload}-{env}
 #
-# Required keys:  workload_subscription_id, workload_resource_group
+# Required key:   workload_subscription_id
 # Optional keys:  role, workload_rg_location
 #   (if you set an optional key on one entry, set it on all entries —
 #    or leave them out entirely and rely on the defaults below)
@@ -17,11 +19,9 @@ locals {
   workspaces = {
     "azure-rg-bleep-dev" = {
       workload_subscription_id = "e21b59f3-d80c-435e-a2e3-0b7a77770e38"
-      workload_resource_group  = "rg-bleep-dev"
     }
     "azure-rg-bloop-dev" = {
       workload_subscription_id = "e21b59f3-d80c-435e-a2e3-0b7a77770e38"
-      workload_resource_group  = "rg-bloop-dev"
     }
   }
 }
@@ -45,7 +45,6 @@ module "tfc_wi" {
   tags                    = var.tags
 
   workload_subscription_id = each.value.workload_subscription_id
-  workload_resource_group  = each.value.workload_resource_group
   workload_rg_location     = try(each.value.workload_rg_location, null)
   role                     = try(each.value.role, "Contributor")
 

@@ -12,7 +12,7 @@ variable "tfc_project_name" {
 variable "tfc_workspace_name" {
   description = <<-EOT
     HCP Terraform workspace name following the convention azure-rg-{workload}-{env}.
-    This value drives the UAMI name and both federated credential subjects.
+    Drives the UAMI name, federated credential subjects, and workload RG name (rg-{workload}-{env}).
   EOT
   type        = string
 
@@ -40,16 +40,6 @@ variable "workload_subscription_id" {
   validation {
     condition     = can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", var.workload_subscription_id))
     error_message = "workload_subscription_id must be a valid UUID."
-  }
-}
-
-variable "workload_resource_group" {
-  description = "Name of the workload resource group to create and grant the UAMI access to (e.g. rg-fibre-dev)."
-  type        = string
-
-  validation {
-    condition     = can(regex("^rg-[a-z0-9]+-[a-z0-9]+$", var.workload_resource_group))
-    error_message = "workload_resource_group must follow the pattern rg-{workload}-{env} (lowercase alphanumeric segments only)."
   }
 }
 

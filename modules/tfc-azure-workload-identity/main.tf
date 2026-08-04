@@ -2,6 +2,9 @@ locals {
   project_slug = lower(replace(var.tfc_project_name, " ", "-"))
   uami_name    = "uami-tfc-${lower(var.tfc_org_name)}-${local.project_slug}-${var.tfc_workspace_name}"
 
+  # azure-rg-{workload}-{env} → rg-{workload}-{env}
+  workload_resource_group = trimprefix(var.tfc_workspace_name, "azure-")
+
   tfc_issuer   = "https://app.terraform.io"
   tfc_audience = "api://AzureADTokenExchange"
 
@@ -64,7 +67,7 @@ resource "azurerm_federated_identity_credential" "this" {
 resource "azapi_resource" "workload_rg" {
   type      = "Microsoft.Resources/resourceGroups@2024-03-01"
   parent_id = "/subscriptions/${var.workload_subscription_id}"
-  name      = var.workload_resource_group
+  name      = local.workload_resource_group
   location  = local.workload_rg_location
   tags      = var.tags
 

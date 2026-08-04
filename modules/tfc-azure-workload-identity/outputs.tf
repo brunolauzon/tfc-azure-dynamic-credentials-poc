@@ -23,6 +23,11 @@ output "federated_credential_ids" {
   value       = { for phase, cred in azurerm_federated_identity_credential.this : phase => cred.id }
 }
 
+output "workload_resource_group_name" {
+  description = "Workload resource group name derived from the workspace (azure-rg-X-Y → rg-X-Y)."
+  value       = local.workload_resource_group
+}
+
 output "workload_resource_group_id" {
   description = "Resource ID of the workload resource group."
   value       = azapi_resource.workload_rg.id

@@ -33,9 +33,8 @@ variable "uami_location" {
   type        = string
 }
 
-
 variable "workload_subscription_id" {
-  description = "Subscription ID of the workload subscription where the UAMI will be granted a role."
+  description = "Azure subscription ID for this workspace's workload resource group and role assignment. May differ per workspace."
   type        = string
 
   validation {
@@ -47,12 +46,17 @@ variable "workload_subscription_id" {
 variable "workload_resource_group" {
   description = "Name of the workload resource group to create and grant the UAMI access to (e.g. rg-fibre-dev)."
   type        = string
+
+  validation {
+    condition     = can(regex("^rg-[a-z0-9]+-[a-z0-9]+$", var.workload_resource_group))
+    error_message = "workload_resource_group must follow the pattern rg-{workload}-{env} (lowercase alphanumeric segments only)."
+  }
 }
 
 variable "workload_rg_location" {
-  description = "Azure region for the workload resource group. Defaults to the UAMI location."
+  description = "Azure region for the workload resource group. Defaults to the UAMI location when null."
   type        = string
-  default     = ""
+  default     = null
 }
 
 variable "role" {
@@ -66,9 +70,14 @@ variable "role" {
   }
 }
 
-
 variable "create_tfc_workspace_variables" {
   description = "When true, the module creates TFC_AZURE_RUN_CLIENT_ID and ARM_SUBSCRIPTION_ID workspace variables in HCP Terraform."
   type        = bool
   default     = false
+}
+
+variable "tags" {
+  description = "Tags applied to the UAMI and workload resource group."
+  type        = map(string)
+  default     = {}
 }

@@ -5,12 +5,11 @@ provider "azurerm" {
   resource_provider_registrations = "none"
 }
 
-provider "azurerm" {
-  alias = "workload"
-  features {}
-  subscription_id                 = var.workload_subscription_id
-  use_oidc                        = true
-  resource_provider_registrations = "none"
+# AzAPI uses the same OIDC credentials as azurerm. It is not pinned to a
+# subscription — each module instance sets the workload subscription via
+# parent_id so workspaces can target different Azure subscriptions.
+provider "azapi" {
+  use_oidc = true
 }
 
 provider "tfe" {

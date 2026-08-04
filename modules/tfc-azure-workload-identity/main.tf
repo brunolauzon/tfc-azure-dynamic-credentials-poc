@@ -12,7 +12,8 @@ locals {
   subject_plan  = "organization:${var.tfc_org_name}:project:${var.tfc_project_name}:workspace:${var.tfc_workspace_name}:run_phase:plan"
   subject_apply = "organization:${var.tfc_org_name}:project:${var.tfc_project_name}:workspace:${var.tfc_workspace_name}:run_phase:apply"
 
-  workload_rg_id = "/subscriptions/${var.workload_subscription_id}/resourceGroups/${var.workload_resource_group}"
+  # Fall back to the UAMI location when no explicit workload RG location is given.
+  workload_rg_location = var.workload_rg_location != "" ? var.workload_rg_location : var.uami_location
 }
 
 data "azurerm_resource_group" "platform" {
@@ -43,10 +44,19 @@ resource "azurerm_federated_identity_credential" "apply" {
   audience                  = [local.tfc_audience]
 }
 
-# Role assignment — cross-subscription, scoped to workload resource group
+# Workload resource group — managed by the platform team
+
+resource "azurerm_resource_group" "workload" {
+  provider = azurerm.workload
+  name     = var.workload_resource_group
+  location = local.workload_rg_location
+}
+
+# Role assignment — scoped to the workload resource group
 
 resource "azurerm_role_assignment" "workload" {
-  scope                = local.workload_rg_id
+  provider             = azurerm.workload
+  scope                = azurerm_resource_group.workload.id
   role_definition_name = var.role
   principal_id         = azurerm_user_assigned_identity.this.principal_id
 }

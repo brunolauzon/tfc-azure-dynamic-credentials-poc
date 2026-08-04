@@ -29,6 +29,12 @@ module "tfc_wi" {
   source   = "./modules/tfc-azure-workload-identity"
   for_each = local.workspaces
 
+  providers = {
+    azurerm         = azurerm
+    azurerm.workload = azurerm.workload
+    tfe             = tfe
+  }
+
   tfc_org_name       = local.tfc_org_name
   tfc_project_name   = local.tfc_project_name
   tfc_workspace_name = each.key
@@ -41,5 +47,4 @@ module "tfc_wi" {
   role                     = each.value.role
 
   create_tfc_workspace_variables = true
-  
 }

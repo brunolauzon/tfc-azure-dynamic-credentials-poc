@@ -45,8 +45,14 @@ variable "workload_subscription_id" {
 }
 
 variable "workload_resource_group" {
-  description = "Name of the workload resource group the UAMI will be granted access to (e.g. rg-fibre-dev)."
+  description = "Name of the workload resource group to create and grant the UAMI access to (e.g. rg-fibre-dev)."
   type        = string
+}
+
+variable "workload_rg_location" {
+  description = "Azure region for the workload resource group. Defaults to the UAMI location."
+  type        = string
+  default     = ""
 }
 
 variable "role" {

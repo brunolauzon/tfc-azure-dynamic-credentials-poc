@@ -7,7 +7,6 @@ variable "platform_subscription_id" {
 variable "workload_subscription_id" {
   description = "Azure subscription ID for the workload resource groups."
   type        = string
-  default     = "e21b59f3-d80c-435e-a2e3-0b7a77770e38"
 }
 
 variable "uami_location" {

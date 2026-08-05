@@ -104,23 +104,32 @@ AzAPI is used for workload RGs because Terraform cannot dynamically select an `a
 
 This config runs in the `azure-workload-identity` HCP Terraform workspace. That workspace needs Azure credentials before the first apply — set them up once manually.
 
-Replace placeholders:
+### 0. Set variables
 
-| Placeholder | Meaning |
-|-------------|---------|
-| `<platform-sub>` | Platform subscription ID (one) |
-| `<workload-sub>` | A workload subscription ID (repeat step 4 for each) |
-| `<tenant-id>` | Azure AD tenant ID |
-| `<org>` | HCP Terraform org name |
-| `<location>` | Azure region (e.g. `canadacentral`) |
+Fill these in once, then run the steps below in the **same shell session**:
+
+```bash
+# Required — edit these values
+PLATFORM_SUB="<platform-subscription-id>"
+WORKLOAD_SUB="<workload-subscription-id>"   # re-run step 4 for each extra workload sub
+TENANT_ID="<azure-ad-tenant-id>"
+TFC_ORG="<hcp-terraform-org-name>"
+LOCATION="canadacentral"
+
+# Usually left as-is
+PLATFORM_RG="rg-terraform-identities"
+PLATFORM_UAMI="uami-tfc-platform"
+TFC_PROJECT="Default Project"
+TFC_PLATFORM_WS="azure-workload-identity"
+```
 
 ### 1. Platform resource group
 
 ```bash
 az group create \
-  --name rg-terraform-identities \
-  --location <location> \
-  --subscription <platform-sub>
+  --name "$PLATFORM_RG" \
+  --location "$LOCATION" \
+  --subscription "$PLATFORM_SUB"
 ```
 
 ### 2. Platform UAMI
@@ -129,39 +138,46 @@ Identity used by the `azure-workload-identity` workspace itself (separate from p
 
 ```bash
 az identity create \
-  --name "uami-tfc-platform" \
-  --resource-group "rg-terraform-identities" \
-  --location "<location>" \
-  --subscription <platform-sub>
+  --name "$PLATFORM_UAMI" \
+  --resource-group "$PLATFORM_RG" \
+  --location "$LOCATION" \
+  --subscription "$PLATFORM_SUB"
 
-az identity show \
-  --name "uami-tfc-platform" \
-  --resource-group "rg-terraform-identities" \
-  --subscription <platform-sub> \
-  --query "{clientId:clientId, principalId:principalId}" -o json
+PLATFORM_UAMI_CLIENT_ID=$(az identity show \
+  --name "$PLATFORM_UAMI" \
+  --resource-group "$PLATFORM_RG" \
+  --subscription "$PLATFORM_SUB" \
+  --query clientId -o tsv)
+
+PLATFORM_UAMI_OBJECT_ID=$(az identity show \
+  --name "$PLATFORM_UAMI" \
+  --resource-group "$PLATFORM_RG" \
+  --subscription "$PLATFORM_SUB" \
+  --query principalId -o tsv)
+
+echo "PLATFORM_UAMI_CLIENT_ID=$PLATFORM_UAMI_CLIENT_ID"
+echo "PLATFORM_UAMI_OBJECT_ID=$PLATFORM_UAMI_OBJECT_ID"
 ```
-
-Save `clientId` and `principalId` for later steps.
 
 ### 3. Federated credentials (plan + apply)
 
 ```bash
 az identity federated-credential create \
   --name "tfc-platform-plan" \
-  --identity-name "uami-tfc-platform" \
-  --resource-group "rg-terraform-identities" \
-  --subscription <platform-sub> \
+  --identity-name "$PLATFORM_UAMI" \
+  --resource-group "$PLATFORM_RG" \
+  --subscription "$PLATFORM_SUB" \
   --issuer "https://app.terraform.io" \
-  --subject "organization:<org>:project:Default Project:workspace:azure-workload-identity:run_phase:plan" \
+  --subject "organization:${TFC_ORG}:project:${TFC_PROJECT}:workspace:${TFC_PLATFORM_WS}:run_phase:plan" \
   --audience "api://AzureADTokenExchange"
 
 az identity federated-credential create \
   --name "tfc-platform-apply" \
-  --identity-name "uami-tfc-platform" \
-  --resource-group "rg-terraform-identities" \
-  --subscription <platform-sub> \
+  --identity-name "$PLATFORM_UAMI" \
+  --resource-group "$PLATFORM_RG" \
+  --subscription "$PLATFORM_SUB" \
   --issuer "https://app.terraform.io" \
-  --subject "organization:<org>:project:Default Project:workspace:azure-workload-identity:run_phase:apply" \
+  --subject "organization:${TFC_ORG}:project:${TFC_PROJECT}:workspace:${TFC_PLATFORM_WS}:run_phase:apply" \
   --audience "api://AzureADTokenExchange"
 ```
 
@@ -170,24 +186,24 @@ az identity federated-credential create \
 Grant rights on the **platform** subscription once, then on **every workload subscription** the map will use:
 
 ```bash
-PLATFORM_UAMI_OBJECT_ID="<principalId from step 2>"
-
-# Create UAMIs in the platform subscription
+# Platform subscription — create UAMIs
 az role assignment create \
   --assignee "$PLATFORM_UAMI_OBJECT_ID" \
   --role "Contributor" \
-  --scope "/subscriptions/<platform-sub>"
+  --scope "/subscriptions/${PLATFORM_SUB}"
 
-# Repeat the two assignments below for each workload subscription
+# Workload subscription — create RGs + role assignments
+# For each extra workload sub:
+#   WORKLOAD_SUB="<another-workload-subscription-id>"
 az role assignment create \
   --assignee "$PLATFORM_UAMI_OBJECT_ID" \
   --role "Contributor" \
-  --scope "/subscriptions/<workload-sub>"
+  --scope "/subscriptions/${WORKLOAD_SUB}"
 
 az role assignment create \
   --assignee "$PLATFORM_UAMI_OBJECT_ID" \
   --role "User Access Administrator" \
-  --scope "/subscriptions/<workload-sub>"
+  --scope "/subscriptions/${WORKLOAD_SUB}"
 ```
 
 `Contributor` creates resource groups; `User Access Administrator` writes role assignments. Both are required on each workload subscription.
@@ -199,10 +215,18 @@ In HCP Terraform → workspace `azure-workload-identity` → Variables, add thes
 | Key | Value | Sensitive |
 |-----|-------|-----------|
 | `TFC_AZURE_PROVIDER_AUTH` | `true` | No |
-| `ARM_TENANT_ID` | `<tenant-id>` | No |
-| `ARM_SUBSCRIPTION_ID` | `<platform-sub>` | No |
-| `TFC_AZURE_RUN_CLIENT_ID` | `<clientId from step 2>` | No |
+| `ARM_TENANT_ID` | `$TENANT_ID` | No |
+| `ARM_SUBSCRIPTION_ID` | `$PLATFORM_SUB` | No |
+| `TFC_AZURE_RUN_CLIENT_ID` | `$PLATFORM_UAMI_CLIENT_ID` | No |
 | `TFE_TOKEN` | Org-level API token | **Yes** |
+
+Print the values to paste into the UI:
+
+```bash
+echo "ARM_TENANT_ID=$TENANT_ID"
+echo "ARM_SUBSCRIPTION_ID=$PLATFORM_SUB"
+echo "TFC_AZURE_RUN_CLIENT_ID=$PLATFORM_UAMI_CLIENT_ID"
+```
 
 `TFE_TOKEN` must be an **organisation** token so this workspace can write variables into the workload workspaces it manages. Create one under **Organization Settings → API Tokens**.
 
@@ -219,7 +243,7 @@ In HCP Terraform → workspace `azure-workload-identity` → Variables, add thes
 | Key | Value |
 |-----|-------|
 | `TFC_AZURE_PROVIDER_AUTH` | `true` |
-| `ARM_TENANT_ID` | `<tenant-id>` |
+| `ARM_TENANT_ID` | `$TENANT_ID` |
 
 `TFC_AZURE_RUN_CLIENT_ID` and `ARM_SUBSCRIPTION_ID` are created automatically by the module (`create_tfc_workspace_variables = true`) — each workspace gets its own workload subscription ID.
 
@@ -247,12 +271,16 @@ For each entry in the `workspaces` map, apply creates:
 If you previously applied with the `azurerm.workload` provider alias, remove the old state address and import into AzAPI (Azure resources stay as-is):
 
 ```bash
+TFC_WS="azure-rg-bleep-dev"
+WORKLOAD_RG="${TFC_WS#azure-}"
+WORKLOAD_SUB="<workload-subscription-id>"
+
 terraform state rm \
-  'module.tfc_wi["azure-rg-bleep-dev"].azurerm_resource_group.workload'
+  "module.tfc_wi[\"${TFC_WS}\"].azurerm_resource_group.workload"
 
 terraform import \
-  'module.tfc_wi["azure-rg-bleep-dev"].azapi_resource.workload_rg' \
-  '/subscriptions/<workload-sub>/resourceGroups/rg-bleep-dev'
+  "module.tfc_wi[\"${TFC_WS}\"].azapi_resource.workload_rg" \
+  "/subscriptions/${WORKLOAD_SUB}/resourceGroups/${WORKLOAD_RG}"
 ```
 
 ---
@@ -327,15 +355,24 @@ Optional per-entry keys: `role`, `workload_rg_location`. Because Terraform map v
 ### Importing orphaned resources
 
 ```bash
+PLATFORM_SUB="<platform-subscription-id>"
+WORKLOAD_SUB="<workload-subscription-id>"
+PLATFORM_RG="rg-terraform-identities"
+TFC_ORG="<hcp-terraform-org-name>"
+TFC_PROJECT_SLUG="default-project"   # project name lowercased, spaces → hyphens
+TFC_WS="azure-rg-bleep-dev"
+WORKLOAD_RG="${TFC_WS#azure-}"
+UAMI_NAME="uami-tfc-${TFC_ORG}-${TFC_PROJECT_SLUG}-${TFC_WS}"
+
 # Platform UAMI
 terraform import \
-  'module.tfc_wi["azure-rg-bleep-dev"].azurerm_user_assigned_identity.this' \
-  '/subscriptions/<platform-sub>/resourceGroups/rg-terraform-identities/providers/Microsoft.ManagedIdentity/userAssignedIdentities/uami-tfc-<org>-<project>-azure-rg-bleep-dev'
+  "module.tfc_wi[\"${TFC_WS}\"].azurerm_user_assigned_identity.this" \
+  "/subscriptions/${PLATFORM_SUB}/resourceGroups/${PLATFORM_RG}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${UAMI_NAME}"
 
 # Workload RG (AzAPI)
 terraform import \
-  'module.tfc_wi["azure-rg-bleep-dev"].azapi_resource.workload_rg' \
-  '/subscriptions/<workload-sub>/resourceGroups/rg-bleep-dev'
+  "module.tfc_wi[\"${TFC_WS}\"].azapi_resource.workload_rg" \
+  "/subscriptions/${WORKLOAD_SUB}/resourceGroups/${WORKLOAD_RG}"
 ```
 
 Repeat for each orphaned resource, then `terraform apply`.

@@ -17,11 +17,11 @@
 
 locals {
   workspaces = {
-    "azure-rg-bleep-dev" = {
-      workload_subscription_id = "e21b59f3-d80c-435e-a2e3-0b7a77770e38"
+    "azure-rg-toto-dev" = {
+      workload_subscription_id = "dc585422-8c5b-4b58-bb0c-62c23ac0c77c"
     }
-    "azure-rg-bloop-dev" = {
-      workload_subscription_id = "e21b59f3-d80c-435e-a2e3-0b7a77770e38"
+    "azure-rg-tata-dev" = {
+      workload_subscription_id = "dc585422-8c5b-4b58-bb0c-62c23ac0c77c"
     }
   }
 }
@@ -40,7 +40,6 @@ module "tfc_wi" {
   tfc_project_name   = var.tfc_project_name
   tfc_workspace_name = each.key
 
-  platform_resource_group = var.platform_resource_group
   uami_location           = var.uami_location
   tags                    = var.tags
 

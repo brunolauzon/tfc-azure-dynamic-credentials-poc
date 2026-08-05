@@ -181,7 +181,7 @@ az identity federated-credential create \
   --audience "api://AzureADTokenExchange"
 ```
 
-### 4. RBAC for the platform UAMI
+### 4. RBAC for the platform UAMI (this will needed to be done during the azure subscription creation)
 
 Grant rights on the **platform** subscription once, then on **every workload subscription** the map will use:
 
@@ -255,7 +255,12 @@ After bootstrap:
 
 ```bash
 terraform init
-terraform apply
+
+terraform fmt
+terraform validate
+
+terraform plan -out=tfplan
+terraform apply tfplan
 ```
 
 For each entry in the `workspaces` map, apply creates:
@@ -265,23 +270,6 @@ For each entry in the `workspaces` map, apply creates:
 - Workload resource group in that workspace's Azure subscription
 - Role assignment on that RG
 - Workspace env vars `TFC_AZURE_RUN_CLIENT_ID` and `ARM_SUBSCRIPTION_ID`
-
-### Migrating existing workload RGs (azurerm → azapi)
-
-If you previously applied with the `azurerm.workload` provider alias, remove the old state address and import into AzAPI (Azure resources stay as-is):
-
-```bash
-TFC_WS="azure-rg-bleep-dev"
-WORKLOAD_RG="${TFC_WS#azure-}"
-WORKLOAD_SUB="<workload-subscription-id>"
-
-terraform state rm \
-  "module.tfc_wi[\"${TFC_WS}\"].azurerm_resource_group.workload"
-
-terraform import \
-  "module.tfc_wi[\"${TFC_WS}\"].azapi_resource.workload_rg" \
-  "/subscriptions/${WORKLOAD_SUB}/resourceGroups/${WORKLOAD_RG}"
-```
 
 ---
 
@@ -351,31 +339,6 @@ Optional per-entry keys: `role`, `workload_rg_location`. Because Terraform map v
 | `AADSTS70021: No matching federated identity record` | OIDC subject mismatch (org/project/workspace) | Check exact, case-sensitive names in TFC |
 | `AuthorizationFailed` on data source read | RBAC propagation delay | Wait 2–5 minutes and re-run |
 | Plan works, apply fails auth | Missing `run_phase:apply` federated credential | Verify both plan and apply creds exist |
-
-### Importing orphaned resources
-
-```bash
-PLATFORM_SUB="<platform-subscription-id>"
-WORKLOAD_SUB="<workload-subscription-id>"
-PLATFORM_RG="rg-terraform-identities"
-TFC_ORG="<hcp-terraform-org-name>"
-TFC_PROJECT_SLUG="default-project"   # project name lowercased, spaces → hyphens
-TFC_WS="azure-rg-bleep-dev"
-WORKLOAD_RG="${TFC_WS#azure-}"
-UAMI_NAME="uami-tfc-${TFC_ORG}-${TFC_PROJECT_SLUG}-${TFC_WS}"
-
-# Platform UAMI
-terraform import \
-  "module.tfc_wi[\"${TFC_WS}\"].azurerm_user_assigned_identity.this" \
-  "/subscriptions/${PLATFORM_SUB}/resourceGroups/${PLATFORM_RG}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${UAMI_NAME}"
-
-# Workload RG (AzAPI)
-terraform import \
-  "module.tfc_wi[\"${TFC_WS}\"].azapi_resource.workload_rg" \
-  "/subscriptions/${WORKLOAD_SUB}/resourceGroups/${WORKLOAD_RG}"
-```
-
-Repeat for each orphaned resource, then `terraform apply`.
 
 ---
 

@@ -1,6 +1,6 @@
 provider "azurerm" {
   features {}
-  subscription_id                 = var.platform_subscription_id
+  # subscription_id is read from ARM_SUBSCRIPTION_ID env var set on this workspace.
   use_oidc                        = true
   resource_provider_registrations = "none"
 }

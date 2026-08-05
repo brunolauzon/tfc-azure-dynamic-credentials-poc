@@ -10,12 +10,6 @@ variable "tfc_project_name" {
   default     = "Default Project"
 }
 
-variable "platform_subscription_id" {
-  description = "Single Azure subscription where the platform resource group and all UAMIs live."
-  type        = string
-  default     = "bd99adad-06b5-4d1c-ace0-aa64bdf0a2fe"
-}
-
 variable "platform_resource_group" {
   description = "Centralised platform resource group that owns all UAMIs."
   type        = string

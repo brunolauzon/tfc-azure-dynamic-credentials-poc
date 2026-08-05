@@ -11,8 +11,8 @@
 #   (if you set an optional key on one entry, set it on all entries —
 #    or leave them out entirely and rely on the defaults below)
 #
-# Platform UAMIs always land in var.platform_subscription_id.
-# Each workspace targets its own workload Azure subscription.
+# Platform UAMIs always land in the subscription set via ARM_SUBSCRIPTION_ID
+# on the platform workspace. Each workspace targets its own workload Azure subscription.
 # ---------------------------------------------------------------------------
 
 locals {
@@ -40,8 +40,8 @@ module "tfc_wi" {
   tfc_project_name   = var.tfc_project_name
   tfc_workspace_name = each.key
 
-  uami_location           = var.uami_location
-  tags                    = var.tags
+  uami_location = var.uami_location
+  tags          = var.tags
 
   workload_subscription_id = each.value.workload_subscription_id
   workload_rg_location     = try(each.value.workload_rg_location, null)

@@ -1,31 +1,51 @@
-terraform {
-  required_version = ">= 1.9.0"
+# ---------------------------------------------------------------------------
+# Add one entry per TFC workspace. The map key IS the tfc_workspace_name and
+# drives the UAMI name, federated credential subjects, workload RG name, and
+# TFC env variables.
+#
+# Naming convention: azure-rg-{workload}-{env}
+#   → workload RG:   rg-{workload}-{env}
+#
+# Required key:   workload_subscription_id
+# Optional keys:  role, workload_rg_location
+#   (if you set an optional key on one entry, set it on all entries —
+#    or leave them out entirely and rely on the defaults below)
+#
+# Platform UAMIs always land in the subscription set via ARM_SUBSCRIPTION_ID
+# on the platform workspace. Each workspace targets its own workload Azure subscription.
+# ---------------------------------------------------------------------------
 
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 4.0"
+locals {
+  workspaces = {
+    "azure-rg-toto-dev" = {
+      workload_subscription_id = "dc585422-8c5b-4b58-bb0c-62c23ac0c77c"
+    }
+    "azure-rg-tata-dev" = {
+      workload_subscription_id = "dc585422-8c5b-4b58-bb0c-62c23ac0c77c"
     }
   }
+}
 
-  cloud {
-    organization = "<your-hcp-org>"
-    workspaces {
-      name = "<your-workspace>"
-    }
+module "tfc_wi" {
+  source   = "./modules/tfc-azure-workload-identity"
+  for_each = local.workspaces
+
+  providers = {
+    azurerm = azurerm
+    azapi   = azapi
+    tfe     = tfe
   }
-}
 
-provider "azurerm" {
-  features {}
-}
+  tfc_org_name       = var.tfc_org_name
+  tfc_project_name   = var.tfc_project_name
+  tfc_workspace_name = each.key
 
-data "azurerm_subscription" "current" {}
+  uami_location = var.uami_location
+  tags          = var.tags
 
-output "subscription_display_name" {
-  value = data.azurerm_subscription.current.display_name
-}
+  workload_subscription_id = each.value.workload_subscription_id
+  workload_rg_location     = try(each.value.workload_rg_location, null)
+  role                     = try(each.value.role, "Contributor")
 
-output "subscription_id" {
-  value = data.azurerm_subscription.current.subscription_id
+  create_tfc_workspace_variables = true
 }
